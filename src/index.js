@@ -1,5 +1,6 @@
 import grpc from 'grpc';
 import delay from 'delay';
+import stream from 'stream';
 
 // Properties - Symbols
 const maxConns = Symbol('MaxConns');
@@ -89,20 +90,32 @@ export default class GRPCClient {
     [initializeRPCs](conn) {
         for (const rpc in conn) { // eslint-disable-line
             if (rpc.match(/^_[A-Z]/)) {
-                this[`${this[prefix]}${rpc}`] = async data => {
+                this[`${this[prefix]}${rpc}`] = async (data, cb) => {
                     // Minute delay for handling recursive calls
                     await delay(Math.random() * 5);
 
                     const freeConn = await this[getFreeConn]();
                     this[reserveConn](freeConn);
 
+                    let resolved = false;
                     return new Promise((resolve, reject) => {
-                        freeConn[rpc](data, (err, result) => {
+                        const response = freeConn[rpc](data, (err, result) => {
                             this[releaseConn](freeConn);
 
-                            if (err) return reject(err);
-                            return resolve(result);
+                            cb && cb(err, result);
+
+                            if (!resolved) {
+                                if (err) return reject(err);
+                                return resolve(result);
+                            }
                         });
+                        if (response instanceof stream.Readable || response instanceof stream.Writable) {
+                            response.on && response.on('end', () => {
+                                this[releaseConn](freeConn);
+                            });
+                            resolved = true;
+                            resolve(response);
+                        }
                     });
                 };
             }

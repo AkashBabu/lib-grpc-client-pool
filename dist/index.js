@@ -48,6 +48,10 @@ var _delay = require('delay');
 
 var _delay2 = _interopRequireDefault(_delay);
 
+var _stream = require('stream');
+
+var _stream2 = _interopRequireDefault(_stream);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 // Properties - Symbols
@@ -197,8 +201,8 @@ var GRPCClient = function () {
                 // eslint-disable-line
                 if (rpc.match(/^_[A-Z]/)) {
                     _this3['' + _this3[prefix] + rpc] = function () {
-                        var _ref3 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee2(data) {
-                            var freeConn;
+                        var _ref3 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee2(data, cb) {
+                            var freeConn, resolved;
                             return _regenerator2.default.wrap(function _callee2$(_context2) {
                                 while (1) {
                                     switch (_context2.prev = _context2.next) {
@@ -215,16 +219,28 @@ var GRPCClient = function () {
 
                                             _this3[reserveConn](freeConn);
 
+                                            resolved = false;
                                             return _context2.abrupt('return', new _promise2.default(function (resolve, reject) {
-                                                freeConn[rpc](data, function (err, result) {
+                                                var response = freeConn[rpc](data, function (err, result) {
                                                     _this3[releaseConn](freeConn);
 
-                                                    if (err) return reject(err);
-                                                    return resolve(result);
+                                                    cb && cb(err, result);
+
+                                                    if (!resolved) {
+                                                        if (err) return reject(err);
+                                                        return resolve(result);
+                                                    }
                                                 });
+                                                if (response instanceof _stream2.default.Readable || response instanceof _stream2.default.Writable) {
+                                                    response.on && response.on('end', function () {
+                                                        _this3[releaseConn](freeConn);
+                                                    });
+                                                    resolved = true;
+                                                    resolve(response);
+                                                }
                                             }));
 
-                                        case 7:
+                                        case 8:
                                         case 'end':
                                             return _context2.stop();
                                     }
@@ -232,7 +248,7 @@ var GRPCClient = function () {
                             }, _callee2, _this3);
                         }));
 
-                        return function (_x) {
+                        return function (_x, _x2) {
                             return _ref3.apply(this, arguments);
                         };
                     }();
