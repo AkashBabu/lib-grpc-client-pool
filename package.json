@@ -1,26 +1,28 @@
 {
-    "name": "template-lib",
+    "name": "grpc-pool",
     "version": "1.0.0",
-    "description": "Template for Nodejs libraries",
+    "description": "Multi GRPC Connection Request handlers at Client End",
     "main": "dist/index.js",
     "scripts": {
-        "test": "export NODE_ENV=test && mocha --require babel-core/register --require babel-polyfill test/**/*.test.js --exit",
-        "test:dev": "export NODE_ENV=test &&  mocha --require babel-core/register --require babel-polyfill test/**/*.test.js",
+        "_test": "mocha --require babel-core/register --require babel-polyfill test/**/*.test.js",
+        "_test:exit": "npm run _test -- --exit",
+        "test": "export NODE_ENV=test && npm run _test:exit",
+        "test:dev": "export NODE_ENV=test &&  npm run _test",
+        "coverage": "export NODE_ENV=test && nyc -- npm run _test:exit",
         "build": "$(npm bin)/rimraf dist/ && $(npm bin)/babel src --out-dir dist",
-        "coverage": "export NODE_ENV=test && nyc mocha --require babel-core/register --require babel-polyfill test.js --exit",
         "lint": "$(npm bin)/eslint --config .eslintrc src/index.js"
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/AkashBabu/template-lib.git"
+        "url": "git+https://github.com/AkashBabu/lib-grpc-client.git"
     },
     "keywords": [],
     "author": "001akashbabu@gmail.com",
     "license": "MIT",
     "bugs": {
-        "url": "https://github.com/AkashBabu/template-lib/issues"
+        "url": "https://github.com/AkashBabu/lib-grpc-client/issues"
     },
-    "homepage": "https://github.com/AkashBabu/template-lib#readme",
+    "homepage": "https://github.com/AkashBabu/lib-grpc-client#readme",
     "precommit": [
         "lint",
         "coverage",
@@ -48,5 +50,9 @@
         "nyc": "^12.0.2",
         "pre-commit": "^1.2.2",
         "rimraf": "^2.6.2"
+    },
+    "dependencies": {
+        "delay": "^3.0.0",
+        "grpc": "^1.12.4"
     }
 }

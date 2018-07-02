@@ -1,11 +1,9 @@
-# template-lib
-Nodejs Template for libraries
+# lib-grpc-client-pool
+A Nodejs Lib implementing Pool Connection for GRPC client
 
-This package includes the following:  
-- ES-Lint
-- Babel
-- Mocha & chai
-- Coverage Report (nyc)
+
+## Naming Rules in Proto Files
+Names of the RPC function must Match /^_[A-Z]/, meaning it must start with an `_` followed by an Upper-Case letter
 
 
 ## ES-Lint
