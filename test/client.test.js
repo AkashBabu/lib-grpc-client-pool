@@ -103,4 +103,91 @@ describe('#pool GRPC Connection Pool', () => {
             expect(result[i].resp).to.be.eql('Hello');
         }
     });
+    it('should be able to handle read-stream', async function () {
+        this.timeout(10 * 1000);
+        const connOpts = {
+            maxConnections : 5,
+            packageName    : 'Hello',
+            serviceName    : 'Greeting',
+            url            : 'localhost:50001',
+        };
+        const client = new GRPCClient(PROTO_FILE, connOpts);
+
+        const { RPC_ReadStream } = client;
+
+        const readStream = await RPC_ReadStream({ msg: 'start' });
+
+        return new Promise(resolve => {
+            let count = 5;
+            readStream.on('data', data => {
+                expect(data.resp).to.be.eql(`count:${count--}`);
+            });
+            readStream.on('end', () => {
+                resolve();
+            });
+        });
+    });
+    it('should be able to handle write-stream', async function () {
+        this.timeout(10 * 1000);
+        const connOpts = {
+            maxConnections : 5,
+            packageName    : 'Hello',
+            serviceName    : 'Greeting',
+            url            : 'localhost:50001',
+        };
+        const client = new GRPCClient(PROTO_FILE, connOpts);
+
+        const { RPC_WriteStream } = client;
+
+        return new Promise(async resolve => {
+            const writeStream = await RPC_WriteStream({ msg: 'start' }, (err, result) => {
+                expect(result.resp).to.be.eql('Done');
+                resolve();
+            });
+
+            let count = 5;
+            function writer() {
+                setTimeout(() => {
+                    writeStream.write({ msg: `count:${count}` });
+                    if (count-- > 0) writer();
+                    else writeStream.end();
+                }, 100);
+            }
+            writer();
+        });
+    });
+    it('should be able to handle both-streams', async function () {
+        this.timeout(10 * 1000);
+        const connOpts = {
+            maxConnections : 5,
+            packageName    : 'Hello',
+            serviceName    : 'Greeting',
+            url            : 'localhost:50001',
+        };
+        const client = new GRPCClient(PROTO_FILE, connOpts);
+
+        const { RPC_BothStream } = client;
+
+        return new Promise(async resolve => {
+            const bs = await RPC_BothStream({ msg: 'start' });
+
+            let count = 5;
+            bs.on('data', data => {
+                expect(data.resp).to.be.eql(`count:${count}`);
+                count--;
+            });
+            bs.on('end', () => {
+                resolve();
+            });
+
+            function writer() {
+                setTimeout(() => {
+                    bs.write({ msg: `count:${count}` });
+                    if (count > 0) writer();
+                    else bs.end();
+                }, 100);
+            }
+            writer();
+        });
+    });
 });
