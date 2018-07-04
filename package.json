@@ -16,7 +16,7 @@
         "type": "git",
         "url": "git+https://github.com/AkashBabu/lib-grpc-client.git"
     },
-    "keywords": [],
+    "keywords": ["grpc", "pool", "multi", "connection", "client"],
     "author": "001akashbabu@gmail.com",
     "license": "MIT",
     "bugs": {
