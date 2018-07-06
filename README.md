@@ -1,4 +1,4 @@
-# lib-grpc-client-pool
+# lib-grpc-client-pool [![Build Status](https://travis-ci.com/AkashBabu/lib-grpc-client-pool.svg?branch=master)](https://travis-ci.com/AkashBabu/lib-grpc-client-pool) [![Maintainability](https://api.codeclimate.com/v1/badges/099d46a7375d95caa3c6/maintainability)](https://codeclimate.com/github/AkashBabu/lib-grpc-client-pool/maintainability)
 A Nodejs Lib implementing Pool Connection for GRPC client
 
 ## What this library provides ?
