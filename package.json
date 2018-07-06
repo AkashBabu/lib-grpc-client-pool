@@ -1,6 +1,6 @@
 {
     "name": "grpc-pool",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Multi GRPC Connection Request handlers at Client End",
     "main": "dist/index.js",
     "scripts": {
@@ -16,7 +16,13 @@
         "type": "git",
         "url": "git+https://github.com/AkashBabu/lib-grpc-client.git"
     },
-    "keywords": ["grpc", "pool", "multi", "connection", "client"],
+    "keywords": [
+        "grpc",
+        "pool",
+        "multi",
+        "connection",
+        "client"
+    ],
     "author": "001akashbabu@gmail.com",
     "license": "MIT",
     "bugs": {
