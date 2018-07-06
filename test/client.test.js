@@ -80,7 +80,7 @@ describe('#pool GRPC Connection Pool', () => {
         expect(client.connCount).to.be.eql(connOpts.maxConnections);
     });
     it('should handle many rpc calls', async function () {
-        this.timeout(10 * 1000);
+        this.timeout(5 * 1000);
         const connOpts = {
             maxConnections : 5,
             packageName    : 'Hello',
@@ -104,7 +104,7 @@ describe('#pool GRPC Connection Pool', () => {
         }
     });
     it('should be able to handle read-stream', async function () {
-        this.timeout(10 * 1000);
+        this.timeout(5 * 1000);
         const connOpts = {
             maxConnections : 5,
             packageName    : 'Hello',
@@ -128,7 +128,7 @@ describe('#pool GRPC Connection Pool', () => {
         });
     });
     it('should be able to handle write-stream', async function () {
-        this.timeout(10 * 1000);
+        this.timeout(3 * 1000);
         const connOpts = {
             maxConnections : 5,
             packageName    : 'Hello',
@@ -157,7 +157,7 @@ describe('#pool GRPC Connection Pool', () => {
         });
     });
     it('should be able to handle both-streams', async function () {
-        this.timeout(10 * 1000);
+        this.timeout(3 * 1000);
         const connOpts = {
             maxConnections : 5,
             packageName    : 'Hello',
