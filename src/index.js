@@ -16,6 +16,7 @@ const getFreeConn = Symbol('GetFreeConn');
 const findFreeConn = Symbol('FindFreeConn');
 const reserveConn = Symbol('ReserveConn');
 const releaseConn = Symbol('ReleaseConn');
+const changeConnStatus = Symbol('ChangeConnStatus');
 const initializeRPCs = Symbol('InitializeRPCs');
 
 
@@ -63,28 +64,25 @@ export default class GRPCClient {
         return Object.values(this[connPool][CONN_STATUS.FREE])[0];
     }
 
-    [reserveConn](conn) {
-        const connId = Object.keys(this[connPool][CONN_STATUS.FREE]).find(id => {
-            const _conn = this[connPool][CONN_STATUS.FREE][id];
+    [changeConnStatus](conn, status) {
+        const currStatus = status === CONN_STATUS.FREE ? CONN_STATUS.BUSY : CONN_STATUS.FREE;
+        const connId = Object.keys(this[connPool][currStatus]).find(id => {
+            const _conn = this[connPool][currStatus][id];
             return _conn === conn;
         });
 
-        const _conn = this[connPool][CONN_STATUS.FREE][connId];
-        delete this[connPool][CONN_STATUS.FREE][connId];
+        const _conn = this[connPool][currStatus][connId];
+        delete this[connPool][currStatus][connId];
 
-        this[connPool][CONN_STATUS.BUSY][connId] = _conn;
+        this[connPool][status][connId] = _conn;
+    }
+
+    [reserveConn](conn) {
+        this[changeConnStatus](conn, CONN_STATUS.BUSY);
     }
 
     [releaseConn](conn) {
-        const connId = Object.keys(this[connPool][CONN_STATUS.BUSY]).find(id => {
-            const _conn = this[connPool][CONN_STATUS.BUSY][id];
-            return _conn === conn;
-        });
-
-        const _conn = this[connPool][CONN_STATUS.BUSY][connId];
-        delete this[connPool][CONN_STATUS.BUSY][connId];
-
-        this[connPool][CONN_STATUS.FREE][connId] = _conn;
+        this[changeConnStatus](conn, CONN_STATUS.FREE);
     }
 
     [initializeRPCs](conn) {
@@ -97,22 +95,15 @@ export default class GRPCClient {
                     const freeConn = await this[getFreeConn]();
                     this[reserveConn](freeConn);
 
-                    let resolved = false;
                     return new Promise((resolve, reject) => {
+                        let resolved = false;
                         const response = freeConn[rpc](data, (err, result) => {
                             this[releaseConn](freeConn);
-
                             cb && cb(err, result);
-
-                            if (!resolved) {
-                                if (err) return reject(err);
-                                return resolve(result);
-                            }
+                            return !resolved && (err ? reject(err) : resolve(result));
                         });
                         if (response instanceof stream.Readable || response instanceof stream.Writable) {
-                            response.on && response.on('end', () => {
-                                this[releaseConn](freeConn);
-                            });
+                            response.on && response.on('end', () => this[releaseConn](freeConn));
                             resolved = true;
                             resolve(response);
                         }
