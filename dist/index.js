@@ -67,6 +67,7 @@ var getFreeConn = (0, _symbol2.default)('GetFreeConn');
 var findFreeConn = (0, _symbol2.default)('FindFreeConn');
 var reserveConn = (0, _symbol2.default)('ReserveConn');
 var releaseConn = (0, _symbol2.default)('ReleaseConn');
+var changeConnStatus = (0, _symbol2.default)('ChangeConnStatus');
 var initializeRPCs = (0, _symbol2.default)('InitializeRPCs');
 
 var CONN_STATUS = {
@@ -163,46 +164,42 @@ var GRPCClient = function () {
             return (0, _values2.default)(this[connPool][CONN_STATUS.FREE])[0];
         }
     }, {
-        key: reserveConn,
-        value: function value(conn) {
+        key: changeConnStatus,
+        value: function value(conn, status) {
             var _this = this;
 
-            var connId = (0, _keys2.default)(this[connPool][CONN_STATUS.FREE]).find(function (id) {
-                var _conn = _this[connPool][CONN_STATUS.FREE][id];
+            var currStatus = status === CONN_STATUS.FREE ? CONN_STATUS.BUSY : CONN_STATUS.FREE;
+            var connId = (0, _keys2.default)(this[connPool][currStatus]).find(function (id) {
+                var _conn = _this[connPool][currStatus][id];
                 return _conn === conn;
             });
 
-            var _conn = this[connPool][CONN_STATUS.FREE][connId];
-            delete this[connPool][CONN_STATUS.FREE][connId];
+            var _conn = this[connPool][currStatus][connId];
+            delete this[connPool][currStatus][connId];
 
-            this[connPool][CONN_STATUS.BUSY][connId] = _conn;
+            this[connPool][status][connId] = _conn;
+        }
+    }, {
+        key: reserveConn,
+        value: function value(conn) {
+            this[changeConnStatus](conn, CONN_STATUS.BUSY);
         }
     }, {
         key: releaseConn,
         value: function value(conn) {
-            var _this2 = this;
-
-            var connId = (0, _keys2.default)(this[connPool][CONN_STATUS.BUSY]).find(function (id) {
-                var _conn = _this2[connPool][CONN_STATUS.BUSY][id];
-                return _conn === conn;
-            });
-
-            var _conn = this[connPool][CONN_STATUS.BUSY][connId];
-            delete this[connPool][CONN_STATUS.BUSY][connId];
-
-            this[connPool][CONN_STATUS.FREE][connId] = _conn;
+            this[changeConnStatus](conn, CONN_STATUS.FREE);
         }
     }, {
         key: initializeRPCs,
         value: function value(conn) {
-            var _this3 = this;
+            var _this2 = this;
 
             var _loop = function _loop(rpc) {
                 // eslint-disable-line
                 if (rpc.match(/^_[A-Z]/)) {
-                    _this3['' + _this3[prefix] + rpc] = function () {
+                    _this2['' + _this2[prefix] + rpc] = function () {
                         var _ref3 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee2(data, cb) {
-                            var freeConn, resolved;
+                            var freeConn;
                             return _regenerator2.default.wrap(function _callee2$(_context2) {
                                 while (1) {
                                     switch (_context2.prev = _context2.next) {
@@ -212,40 +209,35 @@ var GRPCClient = function () {
 
                                         case 2:
                                             _context2.next = 4;
-                                            return _this3[getFreeConn]();
+                                            return _this2[getFreeConn]();
 
                                         case 4:
                                             freeConn = _context2.sent;
 
-                                            _this3[reserveConn](freeConn);
+                                            _this2[reserveConn](freeConn);
 
-                                            resolved = false;
                                             return _context2.abrupt('return', new _promise2.default(function (resolve, reject) {
+                                                var resolved = false;
                                                 var response = freeConn[rpc](data, function (err, result) {
-                                                    _this3[releaseConn](freeConn);
-
+                                                    _this2[releaseConn](freeConn);
                                                     cb && cb(err, result);
-
-                                                    if (!resolved) {
-                                                        if (err) return reject(err);
-                                                        return resolve(result);
-                                                    }
+                                                    return !resolved && (err ? reject(err) : resolve(result));
                                                 });
                                                 if (response instanceof _stream2.default.Readable || response instanceof _stream2.default.Writable) {
                                                     response.on && response.on('end', function () {
-                                                        _this3[releaseConn](freeConn);
+                                                        return _this2[releaseConn](freeConn);
                                                     });
                                                     resolved = true;
                                                     resolve(response);
                                                 }
                                             }));
 
-                                        case 8:
+                                        case 7:
                                         case 'end':
                                             return _context2.stop();
                                     }
                                 }
-                            }, _callee2, _this3);
+                            }, _callee2, _this2);
                         }));
 
                         return function (_x, _x2) {
