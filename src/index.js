@@ -19,91 +19,148 @@ const releaseConn = Symbol('ReleaseConn');
 const changeConnStatus = Symbol('ChangeConnStatus');
 const initializeRPCs = Symbol('InitializeRPCs');
 
-
+// Connection Status
 const CONN_STATUS = {
-    FREE : 1,
-    BUSY : 2,
+    FREE : 0,
+    BUSY : 1,
 };
+
+
+/**
+ * @typedef {object} ConnObj
+ * @property {number} id
+ * @property {object} conn
+ */
+
 export default class GRPCClient {
     constructor(protoFile, { serviceName, packageName, url: serverURL, maxConnections = 2, rpcPrefix = 'RPC', poolInterval = 200 }) {
+        // Max Client connections to Server
         this[maxConns] = maxConnections;
+
+        // Prefix for GRPC Methods
         this[prefix] = rpcPrefix;
+
+        // Connection Ids
         this.connCount = 0;
+
+        // Free-Client Check Interval
         this.poolInterval = poolInterval;
 
-
+        // gRPC-Server URL
         this[url] = serverURL;
+
+        // gRPC Client Channel
         this[client] = grpc.load(protoFile)[packageName][serviceName];
+
+        // Connection Pool Buffer
         this[connPool] = {
             [CONN_STATUS.FREE] : {},
             [CONN_STATUS.BUSY] : {},
         };
 
+        // Create a first Client
         this[createNewConn]();
 
+        // Initialize RPC Methods by using the First Created Client
         this[initializeRPCs](this[findFreeConn]());
     }
 
+    /**
+     * Creates a New Connection and Adds it to the pool in FREE status
+     */
     [createNewConn]() {
-        this[connPool][CONN_STATUS.FREE][++this.connCount] = new this[client](this[url], grpc.credentials.createInsecure());
+        const newConnId = ++this.connCount;
+        this[connPool][CONN_STATUS.FREE][newConnId] = {
+            conn : new this[client](this[url], grpc.credentials.createInsecure()),
+            id   : newConnId,
+        };
     }
 
+    /**
+     * Finds/Waits for a FREE connection
+     */
     async [getFreeConn]() {
-        const freeConn = this[findFreeConn]();
-        if (freeConn) return freeConn;
+        // Minute delay for handling recursive calls
+        await delay(Math.random() * 5);
 
+        const freeConnObj = this[findFreeConn]();
+        if (freeConnObj) return freeConnObj;
+
+        // if number of connections < Max Allowed Connections, then Create a New Connection
         if (this.connCount < this[maxConns]) {
             this[createNewConn]();
         } else {
-            await delay(this.poolInterval + (Math.random() * 20));
+            await delay(this.poolInterval + (Math.random() * 10));
         }
         return this[getFreeConn]();
     }
 
+    /**
+     * Returns the first FREE connection if exists, else returns undefined
+     */
     [findFreeConn]() {
         return Object.values(this[connPool][CONN_STATUS.FREE])[0];
     }
 
-    [changeConnStatus](conn, status) {
-        const currStatus = status === CONN_STATUS.FREE ? CONN_STATUS.BUSY : CONN_STATUS.FREE;
-        const connId = Object.keys(this[connPool][currStatus]).find(id => {
-            const _conn = this[connPool][currStatus][id];
-            return _conn === conn;
-        });
+    /**
+     * Changes the Connection Status
+     * @param {ConnObj} connObj
+     * @param {number} newStatus
+     */
+    [changeConnStatus](connObj, newStatus) {
+        // Converts 0->1(FREE->BUSY) & 1->0(BUSY->FREE) for changing status
+        const currStatus = newStatus ^ 1;
 
-        const _conn = this[connPool][currStatus][connId];
-        delete this[connPool][currStatus][connId];
+        // Add the ConnObj to the NewStatus
+        this[connPool][newStatus][connObj.id] = connObj;
 
-        this[connPool][status][connId] = _conn;
+        // Remove the ConnObj from CurrentStatus
+        delete this[connPool][currStatus][connObj.id];
     }
 
-    [reserveConn](conn) {
-        this[changeConnStatus](conn, CONN_STATUS.BUSY);
+    /**
+     * Changes the status of the given ConnObj to BUSY
+     * @param {ConnObj} connObj
+     */
+    [reserveConn](connObj) {
+        this[changeConnStatus](connObj, CONN_STATUS.BUSY);
     }
 
-    [releaseConn](conn) {
-        this[changeConnStatus](conn, CONN_STATUS.FREE);
+    /**
+     * Changes the status of the given ConnObj to FREE
+     * @param {ConnObj} connObj
+     */
+    [releaseConn](connObj) {
+        this[changeConnStatus](connObj, CONN_STATUS.FREE);
     }
 
-    [initializeRPCs](conn) {
-        for (const rpc in conn) { // eslint-disable-line
+    /**
+     * Adds Methods from protoBuf file to `this` instance object
+     * @param {ConnObj} connObj
+     */
+    [initializeRPCs](connObj) {
+        for (const rpc in connObj.conn) { // eslint-disable-line
             if (rpc.match(/^_[A-Z]/)) {
+                // Creating Method on `this` instance => prefix + rpc_method
                 this[`${this[prefix]}${rpc}`] = async (data, cb) => {
-                    // Minute delay for handling recursive calls
-                    await delay(Math.random() * 5);
+                    const freeConnObj = await this[getFreeConn]();
 
-                    const freeConn = await this[getFreeConn]();
-                    this[reserveConn](freeConn);
+                    // Reserve a FREE Connection on obtaining one
+                    this[reserveConn](freeConnObj);
 
                     return new Promise((resolve, reject) => {
+                        // To avoid Duplicate resolving of Promise
                         let resolved = false;
-                        const response = freeConn[rpc](data, (err, result) => {
-                            this[releaseConn](freeConn);
+
+                        const response = freeConnObj.conn[rpc](data, (err, result) => {
+                            // Release the connection after the request is Done
+                            this[releaseConn](freeConnObj);
+
                             cb && cb(err, result);
                             return !resolved && (err ? reject(err) : resolve(result));
                         });
                         if (response instanceof stream.Readable || response instanceof stream.Writable) {
-                            response.on && response.on('end', () => this[releaseConn](freeConn));
+                            response.on && response.on('end', () => this[releaseConn](freeConnObj));
                             resolved = true;
                             resolve(response);
                         }
