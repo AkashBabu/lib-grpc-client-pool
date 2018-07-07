@@ -8,10 +8,6 @@ var _promise = require('babel-runtime/core-js/promise');
 
 var _promise2 = _interopRequireDefault(_promise);
 
-var _keys = require('babel-runtime/core-js/object/keys');
-
-var _keys2 = _interopRequireDefault(_keys);
-
 var _values = require('babel-runtime/core-js/object/values');
 
 var _values2 = _interopRequireDefault(_values);
@@ -70,10 +66,17 @@ var releaseConn = (0, _symbol2.default)('ReleaseConn');
 var changeConnStatus = (0, _symbol2.default)('ChangeConnStatus');
 var initializeRPCs = (0, _symbol2.default)('InitializeRPCs');
 
+// Connection Status
 var CONN_STATUS = {
-    FREE: 1,
-    BUSY: 2
+    FREE: 0,
+    BUSY: 1
 };
+
+/**
+ * @typedef {object} ConnObj
+ * @property {number} id
+ * @property {object} conn
+ */
 
 var GRPCClient = function () {
     function GRPCClient(protoFile, _ref) {
@@ -90,61 +93,93 @@ var GRPCClient = function () {
             poolInterval = _ref$poolInterval === undefined ? 200 : _ref$poolInterval;
         (0, _classCallCheck3.default)(this, GRPCClient);
 
+        // Max Client connections to Server
         this[maxConns] = maxConnections;
+
+        // Prefix for GRPC Methods
         this[prefix] = rpcPrefix;
+
+        // Connection Ids
         this.connCount = 0;
+
+        // Free-Client Check Interval
         this.poolInterval = poolInterval;
 
+        // gRPC-Server URL
         this[url] = serverURL;
+
+        // gRPC Client Channel
         this[client] = _grpc2.default.load(protoFile)[packageName][serviceName];
+
+        // Connection Pool Buffer
         this[connPool] = (_connPool = {}, (0, _defineProperty3.default)(_connPool, CONN_STATUS.FREE, {}), (0, _defineProperty3.default)(_connPool, CONN_STATUS.BUSY, {}), _connPool);
 
+        // Create a first Client
         this[createNewConn]();
 
+        // Initialize RPC Methods by using the First Created Client
         this[initializeRPCs](this[findFreeConn]());
     }
+
+    /**
+     * Creates a New Connection and Adds it to the pool in FREE status
+     */
+
 
     (0, _createClass3.default)(GRPCClient, [{
         key: createNewConn,
         value: function value() {
-            this[connPool][CONN_STATUS.FREE][++this.connCount] = new this[client](this[url], _grpc2.default.credentials.createInsecure());
+            var newConnId = ++this.connCount;
+            this[connPool][CONN_STATUS.FREE][newConnId] = {
+                conn: new this[client](this[url], _grpc2.default.credentials.createInsecure()),
+                id: newConnId
+            };
         }
+
+        /**
+         * Finds/Waits for a FREE connection
+         */
+
     }, {
         key: getFreeConn,
         value: function () {
             var _ref2 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee() {
-                var freeConn;
+                var freeConnObj;
                 return _regenerator2.default.wrap(function _callee$(_context) {
                     while (1) {
                         switch (_context.prev = _context.next) {
                             case 0:
-                                freeConn = this[findFreeConn]();
+                                _context.next = 2;
+                                return (0, _delay2.default)(Math.random() * 5);
 
-                                if (!freeConn) {
-                                    _context.next = 3;
+                            case 2:
+                                freeConnObj = this[findFreeConn]();
+
+                                if (!freeConnObj) {
+                                    _context.next = 5;
                                     break;
                                 }
 
-                                return _context.abrupt('return', freeConn);
+                                return _context.abrupt('return', freeConnObj);
 
-                            case 3:
+                            case 5:
                                 if (!(this.connCount < this[maxConns])) {
-                                    _context.next = 7;
+                                    _context.next = 9;
                                     break;
                                 }
 
                                 this[createNewConn]();
-                                _context.next = 9;
+                                _context.next = 11;
                                 break;
 
-                            case 7:
-                                _context.next = 9;
-                                return (0, _delay2.default)(this.poolInterval + Math.random() * 20);
-
                             case 9:
+                                _context.next = 11;
+                                return (0, _delay2.default)(this.poolInterval + Math.random() * 10);
+
+                            case 11:
                                 return _context.abrupt('return', this[getFreeConn]());
 
-                            case 10:
+                            case 12:
                             case 'end':
                                 return _context.stop();
                         }
@@ -158,86 +193,115 @@ var GRPCClient = function () {
 
             return value;
         }()
+
+        /**
+         * Returns the first FREE connection if exists, else returns undefined
+         */
+
     }, {
         key: findFreeConn,
         value: function value() {
             return (0, _values2.default)(this[connPool][CONN_STATUS.FREE])[0];
         }
+
+        /**
+         * Changes the Connection Status
+         * @param {ConnObj} connObj
+         * @param {number} newStatus
+         */
+
     }, {
         key: changeConnStatus,
-        value: function value(conn, status) {
-            var _this = this;
+        value: function value(connObj, newStatus) {
+            // Converts 0->1(FREE->BUSY) & 1->0(BUSY->FREE) for changing status
+            var currStatus = newStatus ^ 1;
 
-            var currStatus = status === CONN_STATUS.FREE ? CONN_STATUS.BUSY : CONN_STATUS.FREE;
-            var connId = (0, _keys2.default)(this[connPool][currStatus]).find(function (id) {
-                var _conn = _this[connPool][currStatus][id];
-                return _conn === conn;
-            });
+            // Add the ConnObj to the NewStatus
+            this[connPool][newStatus][connObj.id] = connObj;
 
-            var _conn = this[connPool][currStatus][connId];
-            delete this[connPool][currStatus][connId];
-
-            this[connPool][status][connId] = _conn;
+            // Remove the ConnObj from CurrentStatus
+            delete this[connPool][currStatus][connObj.id];
         }
+
+        /**
+         * Changes the status of the given ConnObj to BUSY
+         * @param {ConnObj} connObj
+         */
+
     }, {
         key: reserveConn,
-        value: function value(conn) {
-            this[changeConnStatus](conn, CONN_STATUS.BUSY);
+        value: function value(connObj) {
+            this[changeConnStatus](connObj, CONN_STATUS.BUSY);
         }
+
+        /**
+         * Changes the status of the given ConnObj to FREE
+         * @param {ConnObj} connObj
+         */
+
     }, {
         key: releaseConn,
-        value: function value(conn) {
-            this[changeConnStatus](conn, CONN_STATUS.FREE);
+        value: function value(connObj) {
+            this[changeConnStatus](connObj, CONN_STATUS.FREE);
         }
+
+        /**
+         * Adds Methods from protoBuf file to `this` instance object
+         * @param {ConnObj} connObj
+         */
+
     }, {
         key: initializeRPCs,
-        value: function value(conn) {
-            var _this2 = this;
+        value: function value(connObj) {
+            var _this = this;
 
             var _loop = function _loop(rpc) {
                 // eslint-disable-line
                 if (rpc.match(/^_[A-Z]/)) {
-                    _this2['' + _this2[prefix] + rpc] = function () {
+                    // Creating Method on `this` instance => prefix + rpc_method
+                    _this['' + _this[prefix] + rpc] = function () {
                         var _ref3 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee2(data, cb) {
-                            var freeConn;
+                            var freeConnObj;
                             return _regenerator2.default.wrap(function _callee2$(_context2) {
                                 while (1) {
                                     switch (_context2.prev = _context2.next) {
                                         case 0:
                                             _context2.next = 2;
-                                            return (0, _delay2.default)(Math.random() * 5);
+                                            return _this[getFreeConn]();
 
                                         case 2:
-                                            _context2.next = 4;
-                                            return _this2[getFreeConn]();
+                                            freeConnObj = _context2.sent;
 
-                                        case 4:
-                                            freeConn = _context2.sent;
 
-                                            _this2[reserveConn](freeConn);
+                                            // Reserve a FREE Connection on obtaining one
+                                            _this[reserveConn](freeConnObj);
 
                                             return _context2.abrupt('return', new _promise2.default(function (resolve, reject) {
+                                                // To avoid Duplicate resolving of Promise
                                                 var resolved = false;
-                                                var response = freeConn[rpc](data, function (err, result) {
-                                                    _this2[releaseConn](freeConn);
+
+                                                var response = freeConnObj.conn[rpc](data, function (err, result) {
+                                                    // Release the connection after the request is Done
+                                                    _this[releaseConn](freeConnObj);
+
                                                     cb && cb(err, result);
                                                     return !resolved && (err ? reject(err) : resolve(result));
                                                 });
                                                 if (response instanceof _stream2.default.Readable || response instanceof _stream2.default.Writable) {
                                                     response.on && response.on('end', function () {
-                                                        return _this2[releaseConn](freeConn);
+                                                        return _this[releaseConn](freeConnObj);
                                                     });
                                                     resolved = true;
                                                     resolve(response);
                                                 }
                                             }));
 
-                                        case 7:
+                                        case 5:
                                         case 'end':
                                             return _context2.stop();
                                     }
                                 }
-                            }, _callee2, _this2);
+                            }, _callee2, _this);
                         }));
 
                         return function (_x, _x2) {
@@ -247,7 +311,7 @@ var GRPCClient = function () {
                 }
             };
 
-            for (var rpc in conn) {
+            for (var rpc in connObj.conn) {
                 _loop(rpc);
             }
         }
