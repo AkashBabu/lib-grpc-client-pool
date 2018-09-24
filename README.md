@@ -40,6 +40,8 @@ const { RPC_Hi } = client;
 const response = await RPC_Hi({msg: 'Hey Bot!'})
 ```
 
+## Installation
+> npm i lib -S
 
 ## ES-Lint
 > npm run lint
@@ -54,4 +56,4 @@ const response = await RPC_Hi({msg: 'Hey Bot!'})
 > npm run coverage
 
 ## Contributions
-Any PR is always welcome, just make sure that your test cases would cover your new features
+This is open-source, which makes it obvious for any PRs, but I would request you to add necessary test-cases for the same 

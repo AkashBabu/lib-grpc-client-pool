@@ -1,0 +1,15 @@
+syntax="proto3";
+
+package com.greeting.proto;
+
+service Greeting {
+    rpc _Hi(Request) returns (Response) {};
+}
+
+message Request {
+
+}
+
+message Response {
+    string greet = 1;
+}

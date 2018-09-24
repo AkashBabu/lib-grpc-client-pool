@@ -7,10 +7,12 @@
         "_test": "mocha --require babel-core/register --require babel-polyfill test/**/*.test.js",
         "_test:exit": "npm run _test -- --exit",
         "test": "export NODE_ENV=test && npm run _test:exit",
-        "test:dev": "export NODE_ENV=test &&  npm run _test",
+        "test:dev": "export NODE_ENV=test &&  npm run _test -- -w",
+        "test:grep": "export NODE_ENV=test &&  npm run _test -- -g ",
         "coverage": "export NODE_ENV=test && nyc -- npm run _test:exit",
-        "build": "$(npm bin)/rimraf dist/ && $(npm bin)/babel src --out-dir dist",
-        "lint": "$(npm bin)/eslint --config .eslintrc src/index.js"
+        "build": "rimraf dist/ && babel src --out-dir dist",
+        "lint": "eslint --config .eslintrc src/index.js",
+        "status": "git status"
     },
     "repository": {
         "type": "git",
@@ -31,17 +33,16 @@
     "homepage": "https://github.com/AkashBabu/lib-grpc-client#readme",
     "precommit": [
         "lint",
+        "build",
         "coverage",
-        "build"
+        "status"
     ],
     "devDependencies": {
         "babel-cli": "^6.26.0",
         "babel-core": "^6.26.3",
         "babel-eslint": "^8.2.3",
         "babel-plugin-transform-runtime": "^6.23.0",
-        "babel-polyfill": "^6.26.0",
         "babel-preset-env": "^1.7.0",
-        "babel-runtime": "^6.26.0",
         "babel-watch": "^2.0.7",
         "chai": "^4.1.2",
         "eslint": "^3.19.0",
@@ -53,12 +54,16 @@
         "eslint-plugin-node": "^6.0.1",
         "eslint-plugin-react": "^6.9.0",
         "mocha": "^5.2.0",
+        "nodemon": "^1.18.3",
         "nyc": "^12.0.2",
         "pre-commit": "^1.2.2",
         "rimraf": "^2.6.2"
     },
     "dependencies": {
-        "delay": "^3.0.0",
-        "grpc": "^1.13.1"
+        "@grpc/proto-loader": "^0.3.0",
+        "babel-polyfill": "^6.26.0",
+        "babel-runtime": "^6.26.0",
+        "delay": "^4.0.1",
+        "grpc": "^1.11.1"
     }
 }

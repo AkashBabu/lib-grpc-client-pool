@@ -1,4 +1,5 @@
 import grpc from 'grpc';
+import { loadSync } from '@grpc/proto-loader';
 import delay from 'delay';
 import stream from 'stream';
 
@@ -50,7 +51,9 @@ export default class GRPCClient {
         this[url] = serverURL;
 
         // gRPC Client Channel
-        this[client] = grpc.load(protoFile)[packageName][serviceName];
+        const packageDefinition = loadSync(protoFile);
+        const tmp = grpc.loadPackageDefinition(packageDefinition);
+        this[client] = packageName.split('.').reduce((proto, chunk) => proto[chunk], tmp)[serviceName];
 
         // Connection Pool Buffer
         this[connPool] = {

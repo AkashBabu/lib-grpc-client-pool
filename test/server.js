@@ -1,9 +1,11 @@
 import grpc from 'grpc';
+import { loadSync } from '@grpc/proto-loader';
 import path from  'path';
 
 const PROTO_PATH = path.join(__dirname, './hello.proto');
 
-const helloProto = grpc.load(PROTO_PATH).Hello;
+const packageDefinitions = loadSync(PROTO_PATH);
+const helloProto = grpc.loadPackageDefinition(packageDefinitions).Hello;
 
 function sayHi(call, cb) {
     setTimeout(() => {
