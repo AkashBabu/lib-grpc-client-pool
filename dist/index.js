@@ -34,7 +34,9 @@ var CONN_STATUS = {
                 */var
 
 GRPCClient = function () {
-    function GRPCClient(protoFile, _ref) {var _connPool;var serviceName = _ref.serviceName,packageName = _ref.packageName,serverURL = _ref.url,_ref$maxConnections = _ref.maxConnections,maxConnections = _ref$maxConnections === undefined ? 2 : _ref$maxConnections,_ref$rpcPrefix = _ref.rpcPrefix,rpcPrefix = _ref$rpcPrefix === undefined ? 'RPC' : _ref$rpcPrefix,_ref$poolInterval = _ref.poolInterval,poolInterval = _ref$poolInterval === undefined ? 200 : _ref$poolInterval;(0, _classCallCheck3.default)(this, GRPCClient);
+    function GRPCClient(protoFile) {var _connPool;var _ref = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {},serviceName = _ref.serviceName,_ref$packageName = _ref.packageName,packageName = _ref$packageName === undefined ? '' : _ref$packageName,serverURL = _ref.url,_ref$maxConnections = _ref.maxConnections,maxConnections = _ref$maxConnections === undefined ? 2 : _ref$maxConnections,_ref$rpcPrefix = _ref.rpcPrefix,rpcPrefix = _ref$rpcPrefix === undefined ? 'RPC' : _ref$rpcPrefix,_ref$poolInterval = _ref.poolInterval,poolInterval = _ref$poolInterval === undefined ? 200 : _ref$poolInterval,_ref$staticFile = _ref.staticFile,staticFile = _ref$staticFile === undefined ? false : _ref$staticFile;(0, _classCallCheck3.default)(this, GRPCClient);
+        if (!serviceName) throw new Error('option.serviceName is a required field');
+
         // Max Client connections to Server
         this[maxConns] = maxConnections;
 
@@ -51,9 +53,13 @@ GRPCClient = function () {
         this[url] = serverURL;
 
         // gRPC Client Channel
-        var packageDefinition = (0, _protoLoader.loadSync)(protoFile);
-        var tmp = _grpc2.default.loadPackageDefinition(packageDefinition);
-        this[client] = packageName.split('.').reduce(function (proto, chunk) {return proto[chunk];}, tmp)[serviceName];
+        if (staticFile) {
+            this[client] = require(protoFile)[serviceName + 'Client']; // eslint-disable-line
+        } else {
+            var packageDefinition = (0, _protoLoader.loadSync)(protoFile);
+            var tmp = _grpc2.default.loadPackageDefinition(packageDefinition);
+            this[client] = packageName.split('.').reduce(function (proto, chunk) {return proto[chunk];}, tmp)[serviceName];
+        }
 
         // Connection Pool Buffer
         this[connPool] = (_connPool = {}, (0, _defineProperty3.default)(_connPool,
@@ -167,7 +173,7 @@ GRPCClient = function () {
                                                     resolved = true;
                                                     resolve(response);
                                                 }
-                                            }));case 5:case 'end':return _context2.stop();}}}, _callee2, _this);}));return function (_x, _x2) {return _ref3.apply(this, arguments);};}();
+                                            }));case 5:case 'end':return _context2.stop();}}}, _callee2, _this);}));return function (_x2, _x3) {return _ref3.apply(this, arguments);};}();
 
                 }};for (var rpc in connObj.conn) {_loop(rpc);
             }
