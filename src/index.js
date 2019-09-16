@@ -34,7 +34,9 @@ const CONN_STATUS = {
  */
 
 export default class GRPCClient {
-    constructor(protoFile, { serviceName, packageName, url: serverURL, maxConnections = 2, rpcPrefix = 'RPC', poolInterval = 200 }) {
+    constructor(protoFile, { serviceName, packageName = '', url: serverURL, maxConnections = 2, rpcPrefix = 'RPC', poolInterval = 200, staticFile = false } = {}) {
+        if (!serviceName) throw new Error('option.serviceName is a required field');
+
         // Max Client connections to Server
         this[maxConns] = maxConnections;
 
@@ -51,9 +53,13 @@ export default class GRPCClient {
         this[url] = serverURL;
 
         // gRPC Client Channel
-        const packageDefinition = loadSync(protoFile);
-        const tmp = grpc.loadPackageDefinition(packageDefinition);
-        this[client] = packageName.split('.').reduce((proto, chunk) => proto[chunk], tmp)[serviceName];
+        if (staticFile) {
+            this[client] = require(protoFile)[`${serviceName}Client`]; // eslint-disable-line
+        } else {
+            const packageDefinition = loadSync(protoFile);
+            const tmp = grpc.loadPackageDefinition(packageDefinition);
+            this[client] = packageName.split('.').reduce((proto, chunk) => proto[chunk], tmp)[serviceName];
+        }
 
         // Connection Pool Buffer
         this[connPool] = {
